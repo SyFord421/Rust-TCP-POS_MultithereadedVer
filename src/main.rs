@@ -21,12 +21,12 @@ fn main() {
                             server::handle_client(stream, invent_clone);
                         });
                     }
-                    Err(e) => println!("Gagal menerima koneksi karena: {}", e),
+                    Err(e) => println!("Gagal menerima koneksi: {}", e),
                 }
             }
         }
         Err(e) => {
-            println!("Waduh, server gagal dinyalain karena: {}", e);
+            println!("[!] Error Server Gagal: {}", e);
         }
     }
 }
