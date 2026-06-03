@@ -41,15 +41,15 @@ pub fn handle_client(mut stream: TcpStream, inventory: Arc<Mutex<HashMap<String,
 fn home(mut stream: TcpStream, user_id: &str, is_new_usr: bool) {
     let status_line = "HTTP/1.1 200 OK";
     let html_content = include_str!("../home.html");
-    let mut response = format!(
-        "{}\r\nContent-Length: {}\r\nContent-Type: text/html\r\n\r\n{}",
+    let mut header = format!(
+        "{}\r\nContent-Length: {}\r\nContent-Type: text/html",
         status_line,
-        html_content.len(),
-        html_content
+        html_content.len()
     );
     if is_new_usr {
-        response.push_str(&format!("\r\nSet-Cookie: user_id={}; Path=/; HttpOnly", user_id));
+        header.push_str(&format!("\r\nSet-Cookie: user_id={}; Path=/; HttpOnly", user_id));
     }
+    let response = format!("{}\r\n\r\n{}", header, html_content);
     let _ = stream.write_all(response.as_bytes());
 }
 
