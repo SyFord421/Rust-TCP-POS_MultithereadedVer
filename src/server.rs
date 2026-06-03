@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
-use rand::Rng;// library bawaan untuk random integer
+use rand::RngExt;// library bawaan untuk random integer
 
 fn generate_random_cookie() -> String {
-    let random_number: u32 = rand::thread_rng().gen();
+    let random_number: u32 = rand::rng().random();
     format!("user_{}", random_number)
 }
 
@@ -13,39 +13,48 @@ pub fn handle_client(mut stream: TcpStream, inventory: Arc<Mutex<HashMap<String,
     let mut buffer = [0; 2048]; // buffer untuk menampung Binner 
     if let Ok(data_size) = stream.read(&mut buffer) {
         let request = String::from_utf8_lossy(&buffer[..data_size]);
+        let mut is_new_usr:bool = false;
         let user_id = if let Some(pos) = request.find("user_id="){
             let start = pos + 8;
             let end = request[start..].find(|c| c == ';' || c == '\r').unwrap_or(request[start..].len());
             request[start..start + end].to_string()
         }else{
+            is_new_usr = true;
             generate_random_cookie()
         };
         if request.starts_with("GET /dashboard"){
             // dashboard
             dashboard(stream, inventory, &user_id);
+        } else if request.starts_with("GET / ")|| request.starts_with("GET /home"){
+        // home
+            home(stream, &user_id, is_new_usr);
         } else if request.starts_with("GET /tambah"){
             // fungsi tambah
             adding_process(stream, &request, inventory, &user_id);
         }else {
-            home(stream);
+            error_404(stream);
         }
     }
 }
 
 // Fungsi Khusus Untuk web Home
-fn home(mut stream: TcpStream) {
+fn home(mut stream: TcpStream, user_id: &str, is_new_usr: bool) {
     let status_line = "HTTP/1.1 200 OK";
     let html_content = include_str!("../home.html");
-    let response = format!(
+    let mut response = format!(
         "{}\r\nContent-Length: {}\r\nContent-Type: text/html\r\n\r\n{}",
         status_line,
         html_content.len(),
         html_content
     );
+    if is_new_usr {
+        response.push_str(&format!("\r\nSet-Cookie: user_id={}; Path=/; HttpOnly", user_id));
+    }
     let _ = stream.write_all(response.as_bytes());
 }
 
 fn dashboard(mut stream: TcpStream, inventory: Arc<Mutex<HashMap<String, Vec<String>>>>,  user_id: &str) {
+    println!("{:?}", inventory);
     let map = inventory.lock().unwrap();
     let status_line = "HTTP/1.1 200 OK";
     let html_content = include_str!("../dashboard.html");
