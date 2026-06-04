@@ -25,8 +25,11 @@ pub fn handle_client(mut stream: TcpStream, inventory: Arc<Mutex<HashMap<String,
         if request.starts_with("GET /dashboard"){
             // dashboard
             dashboard(stream, inventory, &user_id);
-        } else if request.starts_with("GET / ")|| request.starts_with("GET /home"){
-        // home
+        }else if request.starts_with("GET /logout"){
+            // Logout
+            logout(stream, inventory, &user_id);
+        }else if request.starts_with("GET / ")|| request.starts_with("GET /home"){
+            // home
             home(stream, &user_id, is_new_usr);
         } else if request.starts_with("GET /tambah"){
             // fungsi tambah
@@ -84,6 +87,8 @@ fn dashboard(mut stream: TcpStream, inventory: Arc<Mutex<HashMap<String, Vec<Str
         // Kalo user belum nambahin item
         item_html = String::from("<div class='text-sm text-gray-500 text-center py-12'>Keranjang masih kosong nih... 🛍️</div>");
     }
+    
+    
     let final_html = html_content.replace("{{DAFTAR_BELANJAAN}}", &item_html)
     .replace("<span class=\"text-green-600\">Rp 0</span>", &format!("<span class='text-green-600 font-bold'>Rp {}</span>", total));
     let response = format!("{}\r\nSet-Cookie: user_id={}; Path=/; HttpOnly\r\nContent-Length: {}\r\nContent-Type: text/html\r\n\r\n{}",
@@ -116,6 +121,7 @@ fn adding_process(
     inventory: Arc<Mutex<HashMap<String, Vec<String>>>>,
     user_id: &str
 ) {
+    {
     // kunci agar tidak berebut
     let mut map = inventory.lock().unwrap();
     //
@@ -127,8 +133,20 @@ fn adding_process(
     } else if request.contains("barang=roti") {
         inventory.push(String::from("Roti Bakar"));
     }
+    }
 
     let response = "HTTP/1.1 303 See Other\r\nLocation: /dashboard\r\n\r\n";
     let _ = stream.write_all(response.as_bytes());
     drop(stream);
+}
+
+fn logout(mut stream: TcpStream, inventory: Arc<Mutex<HashMap<String, Vec<String>>>>, user_id: &str) {
+    {
+    let mut map = inventory.lock().unwrap();
+    // hapus isi inventory biar nggak ada warisan
+    map.remove(user_id);
+    }
+    let status_line = "HTTP/1.1 303 See Other";
+    let response = format!("{}\r\nLocation: /\r\nSet-Cookie: user_id=; Path=/; HttpOnly; Max-Age=0\r\n\r\n", status_line);
+    let _ = stream.write_all(response.as_bytes());
 }
