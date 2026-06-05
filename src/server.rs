@@ -58,7 +58,13 @@ fn home(mut stream: TcpStream, user_id: &str, is_new_usr: bool) {
 
 fn dashboard(mut stream: TcpStream, inventory: Arc<Mutex<HashMap<String, Vec<String>>>>,  user_id: &str) {
     println!("{:?}", inventory);
-    let map = inventory.lock().unwrap();
+    let map = match inventory.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            eprintln!("Mutex poisoned! Tapi kita recovery gemboknya.");
+            poisoned.into_inner()
+        }
+    };
     let status_line = "HTTP/1.1 200 OK";
     let html_content = include_str!("../dashboard.html");
     let mut item_html = String::new();
@@ -115,15 +121,16 @@ fn error_404(mut stream: TcpStream) {
 }
 
 // Sekarang fungsi ini menerima inventory dan beneran bisa menyimpan data
-fn adding_process(
-    mut stream: TcpStream,
-    request: &str,
-    inventory: Arc<Mutex<HashMap<String, Vec<String>>>>,
-    user_id: &str
-) {
+fn adding_process(mut stream: TcpStream, request: &str, inventory: Arc<Mutex<HashMap<String, Vec<String>>>>, user_id: &str) {
     {
     // kunci agar tidak berebut
-    let mut map = inventory.lock().unwrap();
+    let mut map = match inventory.lock(){
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            eprintln!("Mutex poisoned! Tapi kita recovery gemboknya.");
+            poisoned.into_inner()
+        }
+    };
     //
     let inventory = map.entry(user_id.to_string()).or_insert(Vec::new()); // ambil atau berikan vektor kosong
     if request.contains("barang=kopi") {
@@ -142,7 +149,13 @@ fn adding_process(
 
 fn logout(mut stream: TcpStream, inventory: Arc<Mutex<HashMap<String, Vec<String>>>>, user_id: &str) {
     {
-    let mut map = inventory.lock().unwrap();
+    let mut map = match inventory.lock(){
+        Ok(guard) => guard,
+        Err(poisoned) => {
+             eprintln!("Mutex poisoned! Tapi kita recovery gemboknya.");
+             poisoned.into_inner()
+        }
+    };
     // hapus isi inventory biar nggak ada warisan
     map.remove(user_id);
     }
